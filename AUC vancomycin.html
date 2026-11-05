@@ -1,0 +1,692 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tính AUC24h Vancomycin (Bayes - Goti 2018)</title>
+    <!-- Bootstrap 5 CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <style>
+        body { background-color: #f4f7f6; font-family: 'Segoe UI', Arial, sans-serif; }
+        .app-title { text-align: center; font-weight: 800; color: #2c3e50; margin-top: 20px; margin-bottom: 20px; letter-spacing: 1px;}
+        .custom-card { background: #ffffff; padding: 25px; border-radius: 12px; box-shadow: 0 8px 16px rgba(0,0,0,0.08); margin-bottom: 25px; border-top: 4px solid #3498db;}
+        .custom-card h4 { color: #2980b9; font-weight: bold; margin-bottom: 20px; font-size: 20px; border-bottom: 2px solid #ecf0f1; padding-bottom: 10px;}
+        .btn-calc { background-color: #27ae60; color: white; border: none; font-size: 20px; font-weight: bold; padding: 15px; border-radius: 8px; box-shadow: 0 4px 6px rgba(39, 174, 96, 0.3); transition: 0.3s; width: 100%; margin-top: 15px;}
+        .btn-calc:hover { background-color: #219150; color: white; transform: translateY(-2px); box-shadow: 0 6px 12px rgba(39, 174, 96, 0.4);}
+        .result-container { font-size: 16px; line-height: 1.6; }
+        .param-box { background: #f8f9fa; padding: 15px; border-radius: 8px; margin-bottom: 15px; border-left: 4px solid #6c757d; }
+        .auc-box { text-align: center; margin: 20px 0; padding: 20px; border-radius: 10px; background: #eef2f5; }
+        .auc-value { font-size: 48px; font-weight: 900; color: #2c3e50; line-height: 1.1; }
+        .auc-label { font-size: 18px; font-weight: bold; color: #7f8c8d; text-transform: uppercase; letter-spacing: 2px; }
+        .alert-success-custom { background-color: #d1e7dd; color: #0f5132; padding: 20px; border-radius: 8px; font-size: 18px; text-align: center; border: 2px solid #badbcc;}
+        .alert-warning-custom { background-color: #fff3cd; color: #856404; padding: 20px; border-radius: 8px; font-size: 18px; text-align: center; border: 2px solid #ffeeba;}
+        .hint-text { font-size: 13px; color: #7f8c8d; font-style: italic; margin-bottom: 10px;}
+        
+        .well-panel { padding: 15px; margin-bottom: 15px; border-radius: 4px; border: 1px solid #e3e3e3; }
+        .nav-tabs .nav-link { color: #495057; font-weight: bold; font-size: 16px;}
+        .nav-tabs .nav-link.active { color: #3498db; }
+        
+        .editable-table { width: 100%; border-collapse: collapse; margin-bottom: 10px; }
+        .editable-table th, .editable-table td { border: 1px solid #dee2e6; padding: 8px; text-align: center; }
+        .editable-table th { background-color: #f8f9fa; }
+        .editable-table input { width: 100%; border: none; text-align: center; outline: none; background: transparent; }
+        .editable-table input:focus { background: #eef2f5; }
+        .btn-sm-action { padding: 2px 8px; font-size: 12px; margin: 2px; cursor: pointer; }
+    </style>
+</head>
+<body>
+
+<div class="container-fluid py-3">
+    <div class="app-title">
+        <h2 style="margin:0;">TÍNH AUC24H VANCOMYCIN (PHƯƠNG PHÁP BAYES, MÔ HÌNH GOTI 2018)</h2>
+    </div>
+
+    <!-- Tabs -->
+    <ul class="nav nav-tabs" id="myTab" role="tablist">
+        <li class="nav-item" role="presentation">
+            <button class="nav-link active" id="tab1-tab" data-bs-toggle="tab" data-bs-target="#tab1" type="button" role="tab"><i class="fa-solid fa-calculator"></i> Tính toán ban đầu</button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" id="tab2-tab" data-bs-toggle="tab" data-bs-target="#tab2" type="button" role="tab"><i class="fa-solid fa-table"></i> Theo dõi thời gian thực</button>
+        </li>
+    </ul>
+
+    <div class="tab-content" id="myTabContent">
+        <!-- ================= TAB 1: TÍNH TOÁN BAN ĐẦU ================= -->
+        <div class="tab-pane fade show active py-4" id="tab1" role="tabpanel">
+            <div class="row">
+                <!-- Cột 1: Thông tin BN & Chế độ liều -->
+                <div class="col-md-4">
+                    <div class="custom-card">
+                        <h4>THÔNG TIN BỆNH NHÂN</h4>
+                        <div class="row mb-3">
+                            <div class="col-6">
+                                <label class="form-label">Giới tính:</label><br>
+                                <div class="form-check form-check-inline">
+                                    <input class="form-check-input" type="radio" name="gender_b" id="gender_M" value="M" checked>
+                                    <label class="form-check-label" for="gender_M">Nam</label>
+                                </div>
+                                <div class="form-check form-check-inline">
+                                    <input class="form-check-input" type="radio" name="gender_b" id="gender_F" value="F">
+                                    <label class="form-check-label" for="gender_F">Nữ</label>
+                                </div>
+                            </div>
+                            <div class="col-6">
+                                <label class="form-label">Tuổi (năm):</label>
+                                <input type="number" class="form-control" id="age_b" value="55">
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="col-6">
+                                <label class="form-label">Cân nặng (kg):</label>
+                                <input type="number" class="form-control" id="wt_b" value="70">
+                            </div>
+                            <div class="col-6">
+                                <label class="form-label">Creatinine (mg/dL):</label>
+                                <input type="number" step="0.1" class="form-control" id="scr_b" value="1.2">
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="custom-card">
+                        <h4>CHẾ ĐỘ LIỀU ĐÃ DÙNG</h4>
+                        <div class="form-check mb-3">
+                            <input class="form-check-input" type="checkbox" id="has_loading" checked onchange="toggleLoadingPanel()">
+                            <label class="form-check-label fw-bold" for="has_loading">Bệnh nhân có dùng Liều Nạp?</label>
+                        </div>
+                        
+                        <div id="loading_panel" class="well-panel" style="background: #f1f8ff; border: none;">
+                            <div class="mb-2">
+                                <label>Liều nạp (mg):</label>
+                                <input type="number" class="form-control" id="dose_ld" value="1750" step="250">
+                            </div>
+                            <div>
+                                <label>Giờ truyền liều nạp:</label>
+                                <input type="number" class="form-control" id="t_inf_ld" value="2" step="0.5">
+                            </div>
+                        </div>
+                        <hr>
+                        <div class="mb-3">
+                            <label>Liều duy trì (mg):</label>
+                            <input type="number" class="form-control" id="dose_main" value="1000" step="250">
+                        </div>
+                        <div class="row">
+                            <div class="col-6">
+                                <label>Khoảng cách liều (h):</label>
+                                <input type="number" class="form-control" id="tau" value="12" step="4">
+                            </div>
+                            <div class="col-6">
+                                <label>Giờ truyền liều DT:</label>
+                                <input type="number" class="form-control" id="t_inf_main" value="1" step="0.5">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Cột 2: TDM & Nút Tính toán -->
+                <div class="col-md-4">
+                    <div class="custom-card">
+                        <h4>DỮ LIỆU ĐO NỒNG ĐỘ</h4>
+                        <div class="mb-3">
+                            <label class="form-label">Số lượng mẫu máu:</label><br>
+                            <div class="form-check form-check-inline">
+                                <input class="form-check-input" type="radio" name="tdm_mode" id="tdm_1" value="1_sample" onchange="toggleTDMPanel()">
+                                <label class="form-check-label" for="tdm_1">1 Mẫu</label>
+                            </div>
+                            <div class="form-check form-check-inline">
+                                <input class="form-check-input" type="radio" name="tdm_mode" id="tdm_2" value="2_samples" checked onchange="toggleTDMPanel()">
+                                <label class="form-check-label" for="tdm_2">2 Mẫu</label>
+                            </div>
+                        </div>
+
+                        <!-- 1 Mẫu -->
+                        <div id="tdm_1_panel" class="well-panel" style="background: #fffcf5; border-color: #fbeed5; display: none;">
+                            <div class="mb-2"><label>Mẫu lấy sau liều thứ (kể cả liều load):</label><input type="number" class="form-control" id="n_dose_single" value="4"></div>
+                            <div class="mb-2"><label>Thời điểm (từ bắt đầu lúc truyền) (h):</label><input type="number" class="form-control" id="t_from_dose_single" value="11.5" step="0.5"></div>
+                            <div><label>Nồng độ (mg/L):</label><input type="number" class="form-control" id="c_obs_single" value="14.5" step="0.1"></div>
+                        </div>
+
+                        <!-- 2 Mẫu -->
+                        <div id="tdm_2_panel">
+                            <div class="well-panel" style="background: #fdf2f2; border-color: #f9e1e1;">
+                                <strong>MẪU SỐ 1:</strong>
+                                <div class="row mt-2">
+                                    <div class="col-6 mb-2"><label>Mẫu lấy sau liều thứ:</label><input type="number" class="form-control" id="n_dose_1" value="1"></div>
+                                    <div class="col-6 mb-2"><label>Thời điểm (từ lúc truyền):</label><input type="number" class="form-control" id="t_from_dose_1" value="2.5" step="0.5"></div>
+                                    <div class="col-12"><label>Nồng độ (mg/L):</label><input type="number" class="form-control" id="c_obs_1" value="32.0" step="0.1"></div>
+                                </div>
+                            </div>
+                            <div class="well-panel" style="background: #f2f8fd; border-color: #e1f0f9;">
+                                <strong>MẪU SỐ 2:</strong>
+                                <div class="row mt-2">
+                                    <div class="col-6 mb-2"><label>Mẫu lấy sau liều thứ:</label><input type="number" class="form-control" id="n_dose_2" value="4"></div>
+                                    <div class="col-6 mb-2"><label>Thời điểm (từ lúc truyền):</label><input type="number" class="form-control" id="t_from_dose_2" value="11.5" step="0.5"></div>
+                                    <div class="col-12"><label>Nồng độ (mg/L):</label><input type="number" class="form-control" id="c_obs_2" value="13.5" step="0.1"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <button class="btn-calc" onclick="calculateTab1()"><i class="fa-solid fa-calculator"></i> TÍNH TOÁN BAN ĐẦU</button>
+                </div>
+
+                <!-- Cột 3: Kết quả -->
+                <div class="col-md-4">
+                    <div class="custom-card" style="border-top-color: #27ae60; height: 100%;">
+                        <h4>KẾT QUẢ VÀ KHUYẾN CÁO LIỀU</h4>
+                        <div id="results_ui_b">
+                            <p class="text-muted text-center mt-5">Nhấp "Tính toán ban đầu" để xem kết quả.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Biểu đồ Tab 1 -->
+            <div class="row">
+                <div class="col-md-12">
+                    <div class="custom-card" style="border-top-color: #8e44ad;">
+                        <h4>BIỂU ĐỒ NỒNG ĐỘ - THỜI GIAN</h4>
+                        <canvas id="pk_plot_b" style="max-height: 400px;"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ================= TAB 2: THỜI GIAN THỰC ================= -->
+        <div class="tab-pane fade py-4" id="tab2" role="tabpanel">
+            <div class="row">
+                <!-- Cột 1: Thông tin & Liều dự kiến -->
+                <div class="col-md-3">
+                    <div class="custom-card">
+                        <h4>1. BỆNH NHÂN HIỆN TẠI</h4>
+                        <label class="form-label">Giới tính:</label><br>
+                        <div class="form-check form-check-inline">
+                            <input class="form-check-input" type="radio" name="gender_rt" id="gender_M_rt" value="M" checked>
+                            <label class="form-check-label" for="gender_M_rt">Nam</label>
+                        </div>
+                        <div class="form-check form-check-inline">
+                            <input class="form-check-input" type="radio" name="gender_rt" id="gender_F_rt" value="F">
+                            <label class="form-check-label" for="gender_F_rt">Nữ</label>
+                        </div>
+                        <div class="mt-2 mb-2"><label>Tuổi (năm):</label><input type="number" class="form-control" id="age_rt" value="55"></div>
+                        <div class="mb-2"><label>Cân nặng (kg):</label><input type="number" class="form-control" id="wt_rt" value="70"></div>
+                        <div class="mb-2"><label>Creatinine MỚI NHẤT (mg/dL):</label><input type="number" class="form-control" id="scr_rt" value="1.2" step="0.1"></div>
+                        <p class="hint-text">Lưu ý: Nếu Cr thay đổi, hãy nhập giá trị mới nhất để tính lại Clearance.</p>
+                    </div>
+                    
+                    <div class="custom-card" style="border-top-color: #9b59b6;">
+                        <h4>4. LIỀU DỰ KIẾN TIẾP THEO</h4>
+                        <p class="hint-text">Tính AUC dự kiến. dựa trên lịch sử dùng thuốc và creatinin mới nhất.</p>
+                        <div class="mb-2"><label>Liều (mg):</label><input type="number" class="form-control" id="future_dose" value="1000" step="250"></div>
+                        <div class="mb-2"><label>Khoảng cách liều (giờ):</label><input type="number" class="form-control" id="future_tau" value="12" step="4"></div>
+                        <div class="mb-2"><label>Thời gian truyền (giờ):</label><input type="number" class="form-control" id="future_tinf" value="1" step="0.5"></div>
+                    </div>
+                </div>
+
+                <!-- Cột 2: Bảng dữ liệu -->
+                <div class="col-md-5">
+                    <div class="custom-card" style="border-top-color: #2ecc71;">
+                        <h4>2. LỊCH SỬ DÙNG THUỐC</h4>
+                        <p class="hint-text">Giờ 0 là thời điểm bắt đầu truyền liều đầu tiên.</p>
+                        <table class="editable-table" id="dose_table">
+                            <thead><tr><th>Time_Start</th><th>Dose_mg</th><th>T_inf_h</th><th>Hành động</th></tr></thead>
+                            <tbody>
+                                <tr><td><input type="number" value="0"></td><td><input type="number" value="1500"></td><td><input type="number" value="1.5"></td><td><button class="btn btn-danger btn-sm-action" onclick="deleteRow(this)">Xóa</button></td></tr>
+                                <tr><td><input type="number" value="12"></td><td><input type="number" value="1000"></td><td><input type="number" value="1.0"></td><td><button class="btn btn-danger btn-sm-action" onclick="deleteRow(this)">Xóa</button></td></tr>
+                                <tr><td><input type="number" value="24"></td><td><input type="number" value="1000"></td><td><input type="number" value="1.0"></td><td><button class="btn btn-danger btn-sm-action" onclick="deleteRow(this)">Xóa</button></td></tr>
+                                <tr><td><input type="number" value="36"></td><td><input type="number" value="1000"></td><td><input type="number" value="1.0"></td><td><button class="btn btn-danger btn-sm-action" onclick="deleteRow(this)">Xóa</button></td></tr>
+                            </tbody>
+                        </table>
+                        <button class="btn btn-sm btn-outline-primary mb-3" onclick="addRow('dose_table')">+ Thêm liều</button>
+
+                        <h4>3. KẾT QUẢ ĐO NỒNG ĐỘ (TDM)</h4>
+                        <p class="hint-text">Nhập thời điểm lấy máu (tính từ Giờ 0).</p>
+                        <table class="editable-table" id="tdm_table">
+                            <thead><tr><th>Time_Sample</th><th>Conc_mg_L</th><th>Hành động</th></tr></thead>
+                            <tbody>
+                                <tr><td><input type="number" value="35.5"></td><td><input type="number" value="12.5"></td><td><button class="btn btn-danger btn-sm-action" onclick="deleteRow(this)">Xóa</button></td></tr>
+                                <tr><td><input type="number" value="37.5"></td><td><input type="number" value="32.0"></td><td><button class="btn btn-danger btn-sm-action" onclick="deleteRow(this)">Xóa</button></td></tr>
+                            </tbody>
+                        </table>
+                        <button class="btn btn-sm btn-outline-primary mb-3" onclick="addRow('tdm_table')">+ Thêm mẫu TDM</button>
+
+                        <button class="btn-calc" onclick="calculateTab2()"><i class="fa-solid fa-calculator"></i> TÍNH TOÁN AUC</button>
+                    </div>
+                </div>
+
+                <!-- Cột 3: Kết quả Tab 2 -->
+                <div class="col-md-4">
+                    <div class="custom-card" style="border-top-color: #e74c3c; height: 100%;">
+                        <h4>KẾT QUẢ VÀ KHUYẾN CÁO LIỀU</h4>
+                        <div id="results_ui_rt">
+                            <p class="text-muted text-center mt-5">Nhấp "Tính toán AUC" để xem kết quả.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Biểu đồ Tab 2 -->
+            <div class="row">
+                <div class="col-md-12">
+                    <div class="custom-card" style="border-top-color: #34495e;">
+                        <h4>BIỂU ĐỒ ĐỘNG HỌC</h4>
+                        <canvas id="pk_plot_rt" style="max-height: 400px;"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Thư viện -->
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation@2.1.2"></script>
+
+<script>
+    // ---------------------------------------------------------
+    // 1. CÁC HÀM CỐT LÕI DƯỢC ĐỘNG HỌC (JavaScript)
+    // ---------------------------------------------------------
+    function calc_priors(age, wt, scr, gender) {
+        let crcl = ((140 - age) * wt) / (72 * scr);
+        if (gender === "F") crcl *= 0.85;
+        if (crcl > 150) crcl = 150;
+        
+        let CL_pop = 4.5 * Math.pow(crcl / 120, 0.8);
+        let V1_pop = 58.4 * (wt / 70);
+        let V2_pop = 38.4;
+        let Q_pop = 6.5;
+        
+        let w2_CL = Math.log(1 + Math.pow(0.398, 2));
+        let w2_V1 = Math.log(1 + Math.pow(0.816, 2));
+        
+        return { CL: CL_pop, V1: V1_pop, V2: V2_pop, Q: Q_pop, w2_CL: w2_CL, w2_V1: w2_V1 };
+    }
+
+    function predict_conc_non_ss(CL, V1, V2, Q, doses, t_starts, t_inf_list, t_obs) {
+        let k10 = CL / V1;
+        let k12 = Q / V1;
+        let k21 = Q / V2;
+        
+        let Sum = k10 + k12 + k21;
+        let Prod = k10 * k21;
+        
+        let alpha = (Sum + Math.sqrt(Sum * Sum - 4 * Prod)) / 2;
+        let beta = (Sum - Math.sqrt(Sum * Sum - 4 * Prod)) / 2;
+        
+        let A = (1 / V1) * ((alpha - k21) / (alpha - beta));
+        let B = (1 / V1) * ((k21 - beta) / (alpha - beta));
+        
+        let C_total = 0;
+        
+        for (let i = 0; i < doses.length; i++) {
+            let t_start = t_starts[i];
+            let t_inf = t_inf_list[i];
+            let dose = doses[i];
+            
+            if (t_obs >= t_start) {
+                let t_elapsed = t_obs - t_start;
+                let R0 = dose / t_inf;
+                
+                if (t_elapsed >= t_inf) {
+                    let term_a = (A / alpha) * (1 - Math.exp(-alpha * t_inf)) * Math.exp(-alpha * (t_elapsed - t_inf));
+                    let term_b = (B / beta)  * (1 - Math.exp(-beta * t_inf))  * Math.exp(-beta * (t_elapsed - t_inf));
+                    C_total += R0 * (term_a + term_b);
+                } else {
+                    let term_a = (A / alpha) * (1 - Math.exp(-alpha * t_elapsed));
+                    let term_b = (B / beta)  * (1 - Math.exp(-beta * t_elapsed));
+                    C_total += R0 * (term_a + term_b);
+                }
+            }
+        }
+        return C_total;
+    }
+
+    function bayesian_obj_flexible(params, c_obs_vec, doses, t_starts, t_inf_list, t_obs_vec, priors) {
+        let CL_est = params[0];
+        let V1_est = params[1];
+        
+        // Ràng buộc giới hạn (L-BFGS-B lower/upper bounds trong R)
+        if (CL_est < 0.1 || CL_est > 30 || V1_est < 5 || V1_est > 200) return 1e9; 
+
+        let LL_obs_total = 0;
+        for (let i = 0; i < c_obs_vec.length; i++) {
+            let c_pred = predict_conc_non_ss(CL_est, V1_est, priors.V2, priors.Q, doses, t_starts, t_inf_list, t_obs_vec[i]);
+            if (c_pred < 1e-6) c_pred = 1e-6;
+            let sigma2 = Math.pow(0.227 * c_pred, 2) + Math.pow(3.4, 2);
+            LL_obs_total += (Math.pow(c_obs_vec[i] - c_pred, 2)) / sigma2 + Math.log(sigma2);
+        }
+        
+        let LL_CL = Math.pow(Math.log(CL_est) - Math.log(priors.CL), 2) / priors.w2_CL;
+        let LL_V1 = Math.pow(Math.log(V1_est) - Math.log(priors.V1), 2) / priors.w2_V1;
+        
+        return LL_obs_total + LL_CL + LL_V1;
+    }
+
+    // Thuật toán Nelder-Mead (thay thế cho optim L-BFGS-B của R)
+    function optimize_nelder_mead(obj_func, start_pt, max_iter = 500, tol = 1e-6) {
+        let alpha = 1.0, gamma = 2.0, rho = 0.5, sigma = 0.5;
+        let p1 = [...start_pt], p2 = [start_pt[0] * 1.1, start_pt[1]], p3 = [start_pt[0], start_pt[1] * 1.1];
+        let simplex = [
+            { pt: p1, val: obj_func(p1) },
+            { pt: p2, val: obj_func(p2) },
+            { pt: p3, val: obj_func(p3) }
+        ];
+
+        for (let iter = 0; iter < max_iter; iter++) {
+            simplex.sort((a, b) => a.val - b.val);
+            if (Math.abs(simplex[2].val - simplex[0].val) < tol) break;
+
+            let centroid = [(simplex[0].pt[0] + simplex[1].pt[0]) / 2, (simplex[0].pt[1] + simplex[1].pt[1]) / 2];
+            let worst = simplex[2].pt;
+            
+            // Reflection
+            let xr = [centroid[0] + alpha * (centroid[0] - worst[0]), centroid[1] + alpha * (centroid[1] - worst[1])];
+            let vr = obj_func(xr);
+            
+            if (vr >= simplex[0].val && vr < simplex[1].val) {
+                simplex[2] = { pt: xr, val: vr };
+                continue;
+            }
+            
+            // Expansion
+            if (vr < simplex[0].val) {
+                let xe = [centroid[0] + gamma * (xr[0] - centroid[0]), centroid[1] + gamma * (xr[1] - centroid[1])];
+                let ve = obj_func(xe);
+                simplex[2] = ve < vr ? { pt: xe, val: ve } : { pt: xr, val: vr };
+                continue;
+            }
+            
+            // Contraction
+            let xc = [centroid[0] + rho * (worst[0] - centroid[0]), centroid[1] + rho * (worst[1] - centroid[1])];
+            let vc = obj_func(xc);
+            if (vc < simplex[2].val) {
+                simplex[2] = { pt: xc, val: vc };
+                continue;
+            }
+            
+            // Shrink
+            simplex[1].pt = [simplex[0].pt[0] + sigma * (simplex[1].pt[0] - simplex[0].pt[0]), simplex[0].pt[1] + sigma * (simplex[1].pt[1] - simplex[0].pt[1])];
+            simplex[1].val = obj_func(simplex[1].pt);
+            simplex[2].pt = [simplex[0].pt[0] + sigma * (simplex[2].pt[0] - simplex[0].pt[0]), simplex[0].pt[1] + sigma * (simplex[2].pt[1] - simplex[0].pt[1])];
+            simplex[2].val = obj_func(simplex[2].pt);
+        }
+        return simplex[0].pt;
+    }
+
+    // ---------------------------------------------------------
+    // 2. TƯƠNG TÁC GIAO DIỆN (UI LOGIC)
+    // ---------------------------------------------------------
+    function toggleLoadingPanel() {
+        let isChecked = document.getElementById('has_loading').checked;
+        document.getElementById('loading_panel').style.display = isChecked ? 'block' : 'none';
+    }
+
+    function toggleTDMPanel() {
+        let mode = document.querySelector('input[name="tdm_mode"]:checked').value;
+        document.getElementById('tdm_1_panel').style.display = (mode === '1_sample') ? 'block' : 'none';
+        document.getElementById('tdm_2_panel').style.display = (mode === '2_samples') ? 'block' : 'none';
+    }
+
+    // Biến toàn cục lưu biểu đồ để xóa trước khi vẽ lại
+    let chart_b = null;
+    let chart_rt = null;
+
+    // ---------------------------------------------------------
+    // 3. TÍNH TOÁN TAB 1
+    // ---------------------------------------------------------
+    function calculateTab1() {
+        let gender = document.querySelector('input[name="gender_b"]:checked').value;
+        let age = parseFloat(document.getElementById('age_b').value);
+        let wt = parseFloat(document.getElementById('wt_b').value);
+        let scr = parseFloat(document.getElementById('scr_b').value);
+        let has_loading = document.getElementById('has_loading').checked;
+        
+        let dose_ld = parseFloat(document.getElementById('dose_ld').value);
+        let t_inf_ld = parseFloat(document.getElementById('t_inf_ld').value);
+        let dose_main = parseFloat(document.getElementById('dose_main').value);
+        let tau = parseFloat(document.getElementById('tau').value);
+        let t_inf_main = parseFloat(document.getElementById('t_inf_main').value);
+        
+        let tdm_mode = document.querySelector('input[name="tdm_mode"]:checked').value;
+        
+        let max_dose_num = 1;
+        if (tdm_mode === "1_sample") {
+            max_dose_num = parseInt(document.getElementById('n_dose_single').value);
+        } else {
+            max_dose_num = Math.max(parseInt(document.getElementById('n_dose_1').value), parseInt(document.getElementById('n_dose_2').value));
+        }
+
+        let doses = [], t_starts = [], t_inf_list = [], curr_time = 0;
+        
+        if (has_loading) {
+            doses.push(dose_ld); t_starts.push(0); t_inf_list.push(t_inf_ld); curr_time = tau;
+            for (let i = 2; i <= max_dose_num; i++) {
+                doses.push(dose_main); t_starts.push(curr_time); t_inf_list.push(t_inf_main);
+                if (i < max_dose_num) curr_time += tau;
+            }
+        } else {
+            for (let i = 1; i <= max_dose_num; i++) {
+                doses.push(dose_main); t_starts.push(curr_time); t_inf_list.push(t_inf_main);
+                if (i < max_dose_num) curr_time += tau;
+            }
+        }
+
+        let t_obs_vec = [], c_obs_vec = [];
+        if (tdm_mode === "1_sample") {
+            let n = parseInt(document.getElementById('n_dose_single').value) - 1;
+            t_obs_vec.push(t_starts[n] + parseFloat(document.getElementById('t_from_dose_single').value));
+            c_obs_vec.push(parseFloat(document.getElementById('c_obs_single').value));
+        } else {
+            let n1 = parseInt(document.getElementById('n_dose_1').value) - 1;
+            let n2 = parseInt(document.getElementById('n_dose_2').value) - 1;
+            t_obs_vec.push(t_starts[n1] + parseFloat(document.getElementById('t_from_dose_1').value));
+            t_obs_vec.push(t_starts[n2] + parseFloat(document.getElementById('t_from_dose_2').value));
+            c_obs_vec.push(parseFloat(document.getElementById('c_obs_1').value));
+            c_obs_vec.push(parseFloat(document.getElementById('c_obs_2').value));
+        }
+
+        let priors = calc_priors(age, wt, scr, gender);
+        let objFunc = (params) => bayesian_obj_flexible(params, c_obs_vec, doses, t_starts, t_inf_list, t_obs_vec, priors);
+        
+        let est_params = optimize_nelder_mead(objFunc, [priors.CL, priors.V1]);
+        let CL = est_params[0];
+        let V1 = est_params[1];
+        
+        let auc24_ss = (dose_main * (24 / tau)) / CL;
+        let dose_min_rounded = Math.max(250, Math.round(((400 * CL) / (24 / tau)) / 250) * 250);
+        let dose_max_rounded = Math.max(250, Math.round(((600 * CL) / (24 / tau)) / 250) * 250);
+
+        // Hiển thị UI Tab 1
+        let html_params = `
+            <div class='result-container'><div class='param-box'>
+            <b>Độ thanh thải (CL):</b> <span style='float:right; font-weight:bold; color:#2980b9;'>${CL.toFixed(2)} L/h</span><br/>
+            <b>Thể tích V1:</b> <span style='float:right; font-weight:bold; color:#2980b9;'>${V1.toFixed(2)} L</span>
+            </div>`;
+        
+        let html_auc = `<div class='auc-box'><div class='auc-label'>AUC 24h dự đoán</div><div class='auc-value'>${auc24_ss.toFixed(1)}</div></div>`;
+        
+        let html_recom = "";
+        if (auc24_ss >= 400 && auc24_ss <= 600) {
+            html_recom = "<div class='alert-success-custom'><b>ĐẠT MỤC TIÊU</b><br/>Giữ nguyên chế độ liều hiện tại.</div>";
+        } else {
+            let recom_text = (dose_min_rounded === dose_max_rounded) 
+                ? `${dose_min_rounded} mg mỗi ${tau} giờ` 
+                : `${dose_min_rounded} mg - ${dose_max_rounded} mg mỗi ${tau} giờ`;
+            html_recom = `<div class='alert-warning-custom'><b>CẦN CHỈNH LIỀU</b><br/>Khuyến cáo:<br/><span style='font-size:24px; font-weight:900;'>${recom_text}</span></div>`;
+        }
+        
+        document.getElementById('results_ui_b').innerHTML = html_params + html_auc + html_recom + "</div>";
+
+        // Vẽ biểu đồ Tab 1
+        let max_t = Math.max(...t_starts) + tau;
+        let t_seq = [];
+        for (let i = 0; i <= max_t; i += 0.5) t_seq.push(i);
+        t_starts.forEach(t => t_seq.push(t));
+        t_starts.forEach((t, idx) => t_seq.push(t + t_inf_list[idx]));
+        t_obs_vec.forEach(t => t_seq.push(t));
+        t_seq = [...new Set(t_seq)].sort((a,b) => a-b);
+
+        let prior_data = t_seq.map(t => ({x: t, y: predict_conc_non_ss(priors.CL, priors.V1, priors.V2, priors.Q, doses, t_starts, t_inf_list, t)}));
+        let post_data = t_seq.map(t => ({x: t, y: predict_conc_non_ss(CL, V1, priors.V2, priors.Q, doses, t_starts, t_inf_list, t)}));
+        let obs_data = t_obs_vec.map((t, idx) => ({x: t, y: c_obs_vec[idx]}));
+
+        if(chart_b) chart_b.destroy();
+        let ctx = document.getElementById('pk_plot_b').getContext('2d');
+        chart_b = new Chart(ctx, {
+            type: 'line',
+            data: {
+                datasets: [
+                    { label: 'Tiên nghiệm (Quần thể)', data: prior_data, borderColor: '#95a5a6', borderDash: [5, 5], tension: 0.2, pointRadius: 0 },
+                    { label: 'Hậu nghiệm (Bệnh nhân)', data: post_data, borderColor: '#2980b9', tension: 0.2, pointRadius: 0, borderWidth: 2 },
+                    { label: 'Đo lường', data: obs_data, backgroundColor: '#c0392b', type: 'scatter', pointRadius: 6 }
+                ]
+            },
+            options: {
+                responsive: true, maintainAspectRatio: false,
+                scales: { x: { type: 'linear', title: {display: true, text: 'Thời gian (giờ)'} }, y: { title: {display: true, text: 'Nồng độ (mg/L)'} } }
+            }
+        });
+    }
+
+    // ---------------------------------------------------------
+    // 4. BẢNG DỮ LIỆU & TÍNH TOÁN TAB 2
+    // ---------------------------------------------------------
+    function addRow(tableId) {
+        let table = document.getElementById(tableId).getElementsByTagName('tbody')[0];
+        let newRow = table.insertRow();
+        let colCount = table.rows[0].cells.length;
+        for (let i = 0; i < colCount - 1; i++) {
+            newRow.insertCell(i).innerHTML = '<input type="number" value="">';
+        }
+        newRow.insertCell(colCount - 1).innerHTML = '<button class="btn btn-danger btn-sm-action" onclick="deleteRow(this)">Xóa</button>';
+    }
+
+    function deleteRow(btn) {
+        let row = btn.parentNode.parentNode;
+        row.parentNode.removeChild(row);
+    }
+
+    function getTableData(tableId) {
+        let data = [];
+        let rows = document.getElementById(tableId).getElementsByTagName('tbody')[0].rows;
+        for (let i = 0; i < rows.length; i++) {
+            let inputs = rows[i].getElementsByTagName('input');
+            let rowData = [];
+            let isValid = true;
+            for (let j = 0; j < inputs.length; j++) {
+                let val = parseFloat(inputs[j].value);
+                if (isNaN(val)) isValid = false;
+                rowData.push(val);
+            }
+            if(isValid) data.push(rowData);
+        }
+        return data;
+    }
+
+    function calculateTab2() {
+        let gender = document.querySelector('input[name="gender_rt"]:checked').value;
+        let age = parseFloat(document.getElementById('age_rt').value);
+        let wt = parseFloat(document.getElementById('wt_rt').value);
+        let scr = parseFloat(document.getElementById('scr_rt').value);
+        
+        let future_dose = parseFloat(document.getElementById('future_dose').value);
+        let future_tau = parseFloat(document.getElementById('future_tau').value);
+        let future_tinf = parseFloat(document.getElementById('future_tinf').value);
+
+        let doseData = getTableData('dose_table'); // [Time_Start, Dose, T_inf]
+        let tdmData = getTableData('tdm_table');   // [Time, Conc]
+
+        if(doseData.length === 0 || tdmData.length === 0) {
+            alert("Vui lòng nhập đầy đủ dữ liệu liều và nồng độ.");
+            return;
+        }
+
+        let t_starts = doseData.map(d => d[0]);
+        let doses = doseData.map(d => d[1]);
+        let t_inf_list = doseData.map(d => d[2]);
+
+        let t_obs_vec = tdmData.map(d => d[0]);
+        let c_obs_vec = tdmData.map(d => d[1]);
+        
+        let future_start = Math.max(...t_starts) + future_tau;
+
+        let priors = calc_priors(age, wt, scr, gender);
+        let objFunc = (params) => bayesian_obj_flexible(params, c_obs_vec, doses, t_starts, t_inf_list, t_obs_vec, priors);
+        
+        let est_params = optimize_nelder_mead(objFunc, [priors.CL, priors.V1]);
+        let CL = est_params[0];
+        let V1 = est_params[1];
+
+        // Hiển thị kết quả Tab 2
+        let auc24_future = (future_dose * (24 / future_tau)) / CL;
+        let dose_min_rounded = Math.max(250, Math.round(((400 * CL) / (24 / future_tau)) / 250) * 250);
+        let dose_max_rounded = Math.max(250, Math.round(((600 * CL) / (24 / future_tau)) / 250) * 250);
+
+        let html_params = `
+            <div class='result-container'><div class='param-box'>
+            <b>CL hiện tại:</b> <span style='float:right; color:#27ae60; font-weight:bold;'>${CL.toFixed(2)} L/h</span><br/>
+            <b>V1:</b> <span style='float:right; color:#27ae60; font-weight:bold;'>${V1.toFixed(2)} L</span></div>`;
+        
+        let html_auc = `<div class='auc-box'><div class='auc-label'>AUC 24h (Dự kiến)</div><div class='auc-value'>${auc24_future.toFixed(1)}</div></div>`;
+        
+        let status = "";
+        if (auc24_future >= 400 && auc24_future <= 600) {
+            status = "<div class='alert-success-custom'><b>ĐẠT MỤC TIÊU</b><br/>Liều phù hợp.</div>";
+        } else {
+            let recom_text = (dose_min_rounded === dose_max_rounded) 
+                ? `${dose_min_rounded} mg mỗi ${future_tau} giờ` 
+                : `${dose_min_rounded} mg - ${dose_max_rounded} mg mỗi ${future_tau} giờ`;
+            status = `<div class='alert-warning-custom'><b>CẦN ĐIỀU CHỈNH LẠI</b><br/>Khuyến cáo cho khoảng liều ${future_tau}h:<br/><span style='font-size:24px; font-weight:900;'>${recom_text}</span></div>`;
+        }
+        
+        document.getElementById('results_ui_rt').innerHTML = html_params + html_auc + status + "</div>";
+
+        // Vẽ biểu đồ Tab 2
+        let plot_doses = [...doses, future_dose];
+        let plot_t_starts = [...t_starts, future_start];
+        let plot_t_infs = [...t_inf_list, future_tinf];
+        
+        let max_t = future_start + future_tau;
+        let t_seq = [];
+        for (let i = 0; i <= max_t; i += 0.5) t_seq.push(i);
+        plot_t_starts.forEach(t => t_seq.push(t));
+        plot_t_starts.forEach((t, idx) => t_seq.push(t + plot_t_infs[idx]));
+        t_obs_vec.forEach(t => t_seq.push(t));
+        t_seq = [...new Set(t_seq)].sort((a,b) => a-b);
+
+        let post_data = t_seq.map(t => ({x: t, y: predict_conc_non_ss(CL, V1, priors.V2, priors.Q, plot_doses, plot_t_starts, plot_t_infs, t)}));
+        let obs_data = t_obs_vec.map((t, idx) => ({x: t, y: c_obs_vec[idx]}));
+
+        if(chart_rt) chart_rt.destroy();
+        let ctx = document.getElementById('pk_plot_rt').getContext('2d');
+        chart_rt = new Chart(ctx, {
+            type: 'line',
+            data: {
+                datasets: [
+                    { label: 'Nồng độ', data: post_data, borderColor: '#2980b9', tension: 0.2, pointRadius: 0, borderWidth: 2 },
+                    { label: 'Đo lường', data: obs_data, backgroundColor: '#e74c3c', type: 'scatter', pointRadius: 6 }
+                ]
+            },
+            options: {
+                responsive: true, maintainAspectRatio: false,
+                scales: { x: { type: 'linear', title: {display: true, text: 'Thời gian (giờ) kể từ liều đầu tiên'} }, y: { title: {display: true, text: 'Nồng độ (mg/L)'} } },
+                plugins: {
+                    annotation: {
+                        annotations: {
+                            line1: {
+                                type: 'line', xMin: future_start, xMax: future_start,
+                                borderColor: '#7f8c8d', borderWidth: 2, borderDash: [5, 5],
+                                label: { display: true, content: 'Bắt đầu liều dự kiến', position: 'start', rotation: -90, backgroundColor: 'rgba(0,0,0,0.5)' }
+                            }
+                        }
+                    }
+                }
+            }
+        });
+    }
+</script>
+</body>
+</html>
